@@ -1,11 +1,12 @@
 /* =============================================
    ATMOS WEATHER APP — Script
-   Fetches data from OpenWeatherMap API
+   Uses Open-Meteo API (free, no key required)
+   + Open-Meteo Geocoding for city search
    ============================================= */
 
 // ---- API Configuration ----
-const API_KEY = "0c7e783adcfc4efa0b42d44ff78ce8eb";
-const BASE_URL = "https://api.openweathermap.org/data/2.5/weather";
+const GEO_URL = "https://geocoding-api.open-meteo.com/v1/search";
+const WEATHER_URL = "https://api.open-meteo.com/v1/forecast";
 
 // ---- DOM Elements ----
 const cityInput = document.getElementById("cityInput");
@@ -15,7 +16,6 @@ const loadingState = document.getElementById("loadingState");
 const errorState = document.getElementById("errorState");
 const errorMessage = document.getElementById("errorMessage");
 
-// Weather display elements
 const cityName = document.getElementById("cityName");
 const countryName = document.getElementById("countryName");
 const weatherDate = document.getElementById("weatherDate");
@@ -31,129 +31,84 @@ const pressure = document.getElementById("pressure");
 const visibility = document.getElementById("visibility");
 const sunTimes = document.getElementById("sunTimes");
 
-// ---- Country Code to Name Map (subset) ----
-const countryNames = {
-  CI: "Côte d'Ivoire",
-  FR: "France",
-  JP: "Japan",
-  US: "United States",
-  GB: "United Kingdom",
-  DE: "Germany",
-  BR: "Brazil",
-  IN: "India",
-  CN: "China",
-  CA: "Canada",
-  AU: "Australia",
-  IT: "Italy",
-  ES: "Spain",
-  MX: "Mexico",
-  KR: "South Korea",
-  RU: "Russia",
-  NG: "Nigeria",
-  GH: "Ghana",
-  SN: "Senegal",
-  ZA: "South Africa",
-  EG: "Egypt",
-  MA: "Morocco",
-  KE: "Kenya",
-  TZ: "Tanzania",
-  AE: "UAE",
-  SA: "Saudi Arabia",
-  TR: "Turkey",
-  PT: "Portugal",
-  NL: "Netherlands",
-  SE: "Sweden",
-  NO: "Norway",
-  DK: "Denmark",
-  FI: "Finland",
-  PL: "Poland",
-  AT: "Austria",
-  CH: "Switzerland",
-  BE: "Belgium",
-  IE: "Ireland",
-  GR: "Greece",
-  CZ: "Czech Republic",
-  AR: "Argentina",
-  CO: "Colombia",
-  CL: "Chile",
-  PE: "Peru",
-  TH: "Thailand",
-  VN: "Vietnam",
-  PH: "Philippines",
-  MY: "Malaysia",
-  SG: "Singapore",
-  ID: "Indonesia",
-  NZ: "New Zealand",
+// ---- WMO Weather Code Mapping ----
+const WMO_DESCRIPTIONS = {
+  0: "Clear sky",
+  1: "Mainly clear",
+  2: "Partly cloudy",
+  3: "Overcast",
+  45: "Foggy",
+  48: "Depositing rime fog",
+  51: "Light drizzle",
+  53: "Moderate drizzle",
+  55: "Dense drizzle",
+  56: "Light freezing drizzle",
+  57: "Dense freezing drizzle",
+  61: "Slight rain",
+  63: "Moderate rain",
+  65: "Heavy rain",
+  66: "Light freezing rain",
+  67: "Heavy freezing rain",
+  71: "Slight snowfall",
+  73: "Moderate snowfall",
+  75: "Heavy snowfall",
+  77: "Snow grains",
+  80: "Slight rain showers",
+  81: "Moderate rain showers",
+  82: "Violent rain showers",
+  85: "Slight snow showers",
+  86: "Heavy snow showers",
+  95: "Thunderstorm",
+  96: "Thunderstorm with slight hail",
+  99: "Thunderstorm with heavy hail",
 };
 
-// ---- Weather Icon Mapping ----
-function getWeatherEmoji(iconCode, description) {
-  const map = {
-    "01d": "☀️",
-    "01n": "🌙",
-    "02d": "⛅",
-    "02n": "☁️",
-    "03d": "☁️",
-    "03n": "☁️",
-    "04d": "☁️",
-    "04n": "☁️",
-    "09d": "🌧️",
-    "09n": "🌧️",
-    "10d": "🌦️",
-    "10n": "🌧️",
-    "11d": "⛈️",
-    "11n": "⛈️",
-    "13d": "🌨️",
-    "13n": "🌨️",
-    "50d": "🌫️",
-    "50n": "🌫️",
-  };
-  return map[iconCode] || "🌤️";
+// ---- Weather Emoji from WMO Code ----
+function getWeatherEmoji(code, isDay) {
+  if (code === 0) return isDay ? "☀️" : "🌙";
+  if (code <= 2) return isDay ? "⛅" : "☁️";
+  if (code === 3) return "☁️";
+  if (code <= 48) return "🌫️";
+  if (code <= 57) return "🌧️";
+  if (code <= 65) return isDay ? "🌦️" : "🌧️";
+  if (code <= 67) return "🌧️";
+  if (code <= 77) return "🌨️";
+  if (code <= 82) return "🌧️";
+  if (code <= 86) return "🌨️";
+  return "⛈️";
 }
 
 // ---- Dynamic Gradient Based on Weather ----
-function updateBackground(iconCode) {
-  const gradients = {
-    "01d": ["#2b5876", "#4e4376"], // clear day
-    "01n": ["#0f0c29", "#302b63", "#24243e"], // clear night
-    "02d": ["#4b6cb7", "#182848"], // few clouds day
-    "02n": ["#0f0c29", "#302b63"], // few clouds night
-    "03d": ["#4b6cb7", "#485563"], // scattered clouds
-    "03n": ["#1a1a2e", "#16213e"],
-    "04d": ["#485563", "#29323c"], // broken clouds
-    "04n": ["#1a1a2e", "#16213e"],
-    "09d": ["#2c3e50", "#4ca1af"], // rain
-    "09n": ["#0f2027", "#203a43"],
-    "10d": ["#2c3e50", "#4ca1af"],
-    "10n": ["#0f2027", "#203a43"],
-    "11d": ["#232526", "#414345"], // thunderstorm
-    "11n": ["#0f0c29", "#1a1a2e"],
-    "13d": ["#e6dada", "#274046"], // snow
-    "13n": ["#1a1a2e", "#274046"],
-    "50d": ["#616161", "#9bc5c3"], // mist
-    "50n": ["#1a1a2e", "#2d3436"],
-  };
-  const colors = gradients[iconCode] || ["#0f0c29", "#302b63", "#24243e"];
+function updateBackground(code, isDay) {
+  let colors;
+  if (code === 0 && isDay) colors = ["#2b5876", "#4e4376"];
+  else if (code === 0) colors = ["#0f0c29", "#302b63", "#24243e"];
+  else if (code <= 2 && isDay) colors = ["#4b6cb7", "#182848"];
+  else if (code <= 3 && !isDay) colors = ["#1a1a2e", "#16213e"];
+  else if (code <= 3) colors = ["#485563", "#29323c"];
+  else if (code <= 48) colors = ["#616161", "#9bc5c3"];
+  else if (code <= 67)
+    colors = isDay ? ["#2c3e50", "#4ca1af"] : ["#0f2027", "#203a43"];
+  else if (code <= 77) colors = ["#e6dada", "#274046"];
+  else if (code <= 82)
+    colors = isDay ? ["#2c3e50", "#4ca1af"] : ["#0f2027", "#203a43"];
+  else if (code <= 86) colors = ["#1a1a2e", "#274046"];
+  else colors = ["#232526", "#414345"];
   document.body.style.background = `linear-gradient(135deg, ${colors.join(", ")})`;
 }
 
-// ---- Utility: Format Unix Timestamp ----
-function formatTime(unixTimestamp, timezoneOffset) {
-  const date = new Date((unixTimestamp + timezoneOffset) * 1000);
-  const hours = date.getUTCHours();
-  const mins = date.getUTCMinutes().toString().padStart(2, "0");
-  const ampm = hours >= 12 ? "PM" : "AM";
-  const h = hours % 12 || 12;
-  return `${h}:${mins} ${ampm}`;
+// ---- Utility: Format Time String ----
+function formatTimeStr(isoStr) {
+  const d = new Date(isoStr);
+  const h = d.getHours();
+  const m = String(d.getMinutes()).padStart(2, "0");
+  const ampm = h >= 12 ? "PM" : "AM";
+  return `${h % 12 || 12}:${m} ${ampm}`;
 }
 
 // ---- Utility: Format Date ----
-function formatDate(timezoneOffset) {
-  const now = new Date();
-  const localTime = new Date(
-    now.getTime() + timezoneOffset * 1000 + now.getTimezoneOffset() * 60000,
-  );
-  return localTime.toLocaleDateString("en-US", {
+function formatDate() {
+  return new Date().toLocaleDateString("en-US", {
     weekday: "long",
     month: "long",
     day: "numeric",
@@ -176,83 +131,97 @@ function showError(msg) {
 
 function showWeather() {
   weatherMain.classList.remove("visible");
-  // Force reflow for animation restart
   void weatherMain.offsetWidth;
   weatherMain.classList.add("visible");
   loadingState.classList.remove("visible");
   errorState.classList.remove("visible");
 }
 
-// ---- Fetch Weather Data ----
+// ---- Step 1: Geocode city name to coordinates ----
+async function geocodeCity(city) {
+  const url = `${GEO_URL}?name=${encodeURIComponent(city)}&count=1&language=en&format=json`;
+  const response = await fetch(url);
+  if (!response.ok) throw new Error("Geocoding service unavailable.");
+  const data = await response.json();
+  if (!data.results || data.results.length === 0) {
+    throw new Error(
+      `City "${city}" not found. Check the spelling and try again.`,
+    );
+  }
+  return data.results[0];
+}
+
+// ---- Step 2: Fetch weather from Open-Meteo ----
+async function fetchWeatherData(lat, lon) {
+  const params = [
+    `latitude=${lat}`,
+    `longitude=${lon}`,
+    "current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,weather_code,wind_speed_10m,surface_pressure",
+    "daily=temperature_2m_max,temperature_2m_min,sunrise,sunset",
+    "timezone=auto",
+    "forecast_days=1",
+  ].join("&");
+
+  const url = `${WEATHER_URL}?${params}`;
+  const response = await fetch(url);
+  if (!response.ok)
+    throw new Error("Weather service unavailable. Please try again.");
+  return response.json();
+}
+
+// ---- Main Fetch Function ----
 async function fetchWeather(city) {
   if (!city.trim()) return;
-
   showLoading();
 
   try {
-    const url = `${BASE_URL}?q=${encodeURIComponent(city)}&appid=${API_KEY}&units=metric`;
-    const response = await fetch(url);
+    // Geocode
+    const geo = await geocodeCity(city);
+    const { latitude, longitude, name, country, country_code } = geo;
 
-    if (!response.ok) {
-      if (response.status === 404) {
-        throw new Error(
-          `City "${city}" not found. Check the spelling and try again.`,
-        );
-      } else if (response.status === 401) {
-        throw new Error("API key issue. Please try again later.");
-      } else {
-        throw new Error("Unable to fetch weather data. Please try again.");
-      }
-    }
+    // Fetch weather
+    const weather = await fetchWeatherData(latitude, longitude);
+    const current = weather.current;
+    const daily = weather.daily;
 
-    const data = await response.json();
-    displayWeather(data);
+    // Location
+    cityName.textContent = name;
+    countryName.textContent = country || country_code || "";
+    weatherDate.textContent = formatDate();
+
+    // Temperature
+    const temp = Math.round(current.temperature_2m);
+    tempValue.textContent = temp;
+
+    // Weather description & icon
+    const code = current.weather_code;
+    const isDay = current.is_day === 1;
+    weatherDesc.textContent = WMO_DESCRIPTIONS[code] || "Unknown";
+    weatherIconLarge.textContent = getWeatherEmoji(code, isDay);
+
+    // Temp range
+    tempHi.textContent = `H: ${Math.round(daily.temperature_2m_max[0])}°`;
+    tempLo.textContent = `L: ${Math.round(daily.temperature_2m_min[0])}°`;
+
+    // Details
+    feelsLike.textContent = `${Math.round(current.apparent_temperature)}°`;
+    humidity.textContent = `${current.relative_humidity_2m}%`;
+    windSpeed.textContent = `${Math.round(current.wind_speed_10m)} km/h`;
+    pressure.textContent = `${Math.round(current.surface_pressure)} hPa`;
+    visibility.textContent = "—"; // Open-Meteo free tier doesn't include visibility
+
+    // Sunrise / Sunset
+    const sunrise = formatTimeStr(daily.sunrise[0]);
+    const sunset = formatTimeStr(daily.sunset[0]);
+    sunTimes.textContent = `${sunrise} / ${sunset}`;
+
+    // Dynamic background
+    updateBackground(code, isDay);
+
+    showWeather();
   } catch (error) {
     showError(error.message);
   }
-}
-
-// ---- Display Weather Data ----
-function displayWeather(data) {
-  // Location
-  cityName.textContent = data.name;
-  const country = countryNames[data.sys.country] || data.sys.country;
-  countryName.textContent = country;
-  weatherDate.textContent = formatDate(data.timezone);
-
-  // Temperature
-  tempValue.textContent = Math.round(data.main.temp);
-  weatherDesc.textContent = data.weather[0].description;
-
-  // Icon
-  const iconCode = data.weather[0].icon;
-  weatherIconLarge.textContent = getWeatherEmoji(
-    iconCode,
-    data.weather[0].description,
-  );
-
-  // Temp range
-  tempHi.textContent = `H: ${Math.round(data.main.temp_max)}°`;
-  tempLo.textContent = `L: ${Math.round(data.main.temp_min)}°`;
-
-  // Details
-  feelsLike.textContent = `${Math.round(data.main.feels_like)}°`;
-  humidity.textContent = `${data.main.humidity}%`;
-  windSpeed.textContent = `${Math.round(data.wind.speed * 3.6)} km/h`;
-  pressure.textContent = `${data.main.pressure} hPa`;
-  visibility.textContent = data.visibility
-    ? `${(data.visibility / 1000).toFixed(1)} km`
-    : "—";
-
-  // Sunrise / Sunset
-  const sunrise = formatTime(data.sys.sunrise, data.timezone);
-  const sunset = formatTime(data.sys.sunset, data.timezone);
-  sunTimes.textContent = `${sunrise} / ${sunset}`;
-
-  // Update background gradient
-  updateBackground(iconCode);
-
-  showWeather();
 }
 
 // ---- Event Listeners ----
