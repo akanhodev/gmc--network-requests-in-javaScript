@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Atmos — Weather</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Outfit:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div class="app-container">
+      <!-- Animated background particles -->
+      <div class="bg-particles" id="bgParticles"></div>
+
+      <!-- Header -->
+      <header class="app-header">
+        <div class="logo">
+          <span class="logo-icon">◉</span>
+          <span class="logo-text">atmos</span>
+        </div>
+        <div class="current-time" id="currentTime"></div>
+      </header>
+
+      <!-- Search Section -->
+      <section class="search-section">
+        <div class="search-wrapper">
+          <div class="search-box">
+            <svg
+              class="search-icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input
+              type="text"
+              id="cityInput"
+              placeholder="Search any city..."
+              autocomplete="off"
+            />
+            <button class="search-btn" id="searchBtn">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+              >
+                <line x1="5" y1="12" x2="19" y2="12" />
+                <polyline points="12 5 19 12 12 19" />
+              </svg>
+            </button>
+          </div>
+          <div class="quick-cities">
+            <button class="city-chip" data-city="Abidjan">Abidjan</button>
+            <button class="city-chip" data-city="Paris">Paris</button>
+            <button class="city-chip" data-city="Tokyo">Tokyo</button>
+            <button class="city-chip" data-city="New York">New York</button>
+            <button class="city-chip" data-city="London">London</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Loading State -->
+      <div class="loading-state" id="loadingState">
+        <div class="loader-ring">
+          <div></div>
+          <div></div>
+          <div></div>
+        </div>
+        <p>Fetching weather data...</p>
+      </div>
+
+      <!-- Error State -->
+      <div class="error-state" id="errorState">
+        <div class="error-icon">✕</div>
+        <p id="errorMessage">City not found. Please try again.</p>
+      </div>
+
+      <!-- Weather Display -->
+      <main class="weather-main" id="weatherMain">
+        <!-- Primary Card -->
+        <div class="primary-card">
+          <div class="location-info">
+            <h1 class="city-name" id="cityName">—</h1>
+            <p class="country-name" id="countryName"></p>
+            <p class="weather-date" id="weatherDate"></p>
+          </div>
+          <div class="temp-display">
+            <div class="weather-visual" id="weatherVisual">
+              <div class="weather-icon-large" id="weatherIconLarge"></div>
+            </div>
+            <div class="temp-info">
+              <span class="temp-value" id="tempValue">—</span>
+              <span class="temp-unit">°C</span>
+            </div>
+            <p class="weather-desc" id="weatherDesc">—</p>
+            <div class="temp-range">
+              <span class="temp-hi" id="tempHi">H: —°</span>
+              <span class="temp-divider">·</span>
+              <span class="temp-lo" id="tempLo">L: —°</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Detail Grid -->
+        <div class="detail-grid">
+          <div class="detail-card">
+            <div class="detail-icon">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+              >
+                <path
+                  d="M12 2v2m0 16v2M4 12H2m20 0h-2m-2.83-7.17l-1.42 1.42M7.05 16.95l-1.42 1.42m0-12.74l1.42 1.42m9.9 9.9l1.42 1.42"
+                />
+                <circle cx="12" cy="12" r="4" />
+              </svg>
+            </div>
+            <span class="detail-label">Feels Like</span>
+            <span class="detail-value" id="feelsLike">—°</span>
+          </div>
+          <div class="detail-card">
+            <div class="detail-icon">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+              >
+                <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
+              </svg>
+            </div>
+            <span class="detail-label">Humidity</span>
+            <span class="detail-value" id="humidity">—%</span>
+          </div>
+          <div class="detail-card">
+            <div class="detail-icon">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+              >
+                <path
+                  d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"
+                />
+              </svg>
+            </div>
+            <span class="detail-label">Wind</span>
+            <span class="detail-value" id="windSpeed">— km/h</span>
+          </div>
+          <div class="detail-card">
+            <div class="detail-icon">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+              >
+                <path
+                  d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"
+                />
+                <circle cx="12" cy="12" r="10" />
+              </svg>
+            </div>
+            <span class="detail-label">Pressure</span>
+            <span class="detail-value" id="pressure">— hPa</span>
+          </div>
+          <div class="detail-card">
+            <div class="detail-icon">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+              >
+                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+            </div>
+            <span class="detail-label">Visibility</span>
+            <span class="detail-value" id="visibility">— km</span>
+          </div>
+          <div class="detail-card">
+            <div class="detail-icon">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12 6 12 12 16 14" />
+              </svg>
+            </div>
+            <span class="detail-label">Sunrise / Sunset</span>
+            <span class="detail-value" id="sunTimes">— / —</span>
+          </div>
+        </div>
+      </main>
+
+      <!-- Footer -->
+      <footer class="app-footer">
+        <p>
+          Powered by
+          <a href="https://openweathermap.org" target="_blank"
+            >OpenWeatherMap</a
+          >
+        </p>
+      </footer>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>
